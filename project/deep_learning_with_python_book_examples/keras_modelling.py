@@ -12,5 +12,6 @@ from keras.layers import Dense
 model = Sequential()
 # 8 attributes, input_dim=8
 model.add(Dense(12, input_dim=8, activation='relu'))
-model.add()
+
 # %%
+from tensorflow.keras.wrappers.scikit_learn import KerasClassifier
