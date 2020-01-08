@@ -4,5 +4,6 @@
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.nosetestsEnabled": false,
-    "python.testing.pytestEnabled": true
+    "python.testing.pytestEnabled": true,
+    "python.pythonPath": "C:\\Users\\gcabreram\\AppData\\Local\\Continuum\\anaconda3\\envs\\deep_learingn_concepts_checks_env\\python.exe"
 }
