@@ -71,9 +71,6 @@ tuner = RandomSearch(
 '''
 summary of the search space:
 '''
-# %%
-tuner.search_space_summary()
-
 
 # %%[markdown]
 '''
@@ -81,7 +78,6 @@ Start the search for the best hyperparameter configuration. The call to search h
 Here's what happens in search: models are built iteratively by calling the model-building function, which populates the hyperparameter space (search space) tracked by the hp object. The tuner progressively explores the space, recording metrics for each configuration.
 '''
 
-# %%
 tuner.search(X_train, y_train,
              epochs=5,
              validation_data=(X_test, y_test)
@@ -93,7 +89,16 @@ tuner.results_summary()
 
 #%%[markdown]
 ### Best models achieved with the hyperparametrization
-models = tuner.get_best_models(num_models=2)
+models = tuner.get_best_models(num_models=-1)
+
+#%%
+#tuner.get_best_hyperparameters()
+print('number of models: {}'.format(len(models)))
+
+#%%[markdown]
+### Get model weights:
+model_3_weights = models[3].get_weights()
+
 
 # %%[markdown]
 ### Evaluation score:
