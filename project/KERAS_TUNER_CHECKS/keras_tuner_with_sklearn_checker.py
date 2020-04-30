@@ -139,7 +139,9 @@ tuner = kt.tuners.Sklearn(
               max_trials=10),
           hypermodel=build_model,
           scoring=make_scorer(mean_squared_error),
+          ###adaptación propia para poder almacenar modelos H5 mediante este keras_tuner_sklearn
           is_keras_model=True,
+          ###
           #metrics=mean_squared_error,
           #cv=model_selection.StratifiedKFold(5),
           directory=os.path.normpath('C:/'),
