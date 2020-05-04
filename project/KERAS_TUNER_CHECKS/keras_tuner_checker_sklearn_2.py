@@ -1,75 +1,6 @@
-
-#%%[markdown]
-### Pruebo con keras tuner sklearn un clasificador de ejemplo
 #%%
-# Bayesian optimization on a classifier with Keras tuner scikit-learn:
-import os
-# https://keras-team.github.io/keras-tuner/documentation/tuners/#tuner-class
-import kerastuner as kt
-from sklearn import ensemble
-from sklearn import datasets
-from sklearn import linear_model
-from sklearn import metrics
-from sklearn import model_selection
-'''
-COMPROBAR ESTE EJEMPLO CON UN DATASET DE REGRESIÓN
-'''
-def build_model(hp):
-  model_type = hp.Choice('model_type', ['random_forest', 'ridge'])
-  if model_type == 'random_forest':
-    model = ensemble.RandomForestClassifier(
-        n_estimators=hp.Int('n_estimators', 10, 50, step=10),
-        max_depth=hp.Int('max_depth', 3, 10))
-  else:
-    model = linear_model.RidgeClassifier(
-        alpha=hp.Float('alpha', 1e-3, 1, sampling='log'))
-  return model
-
-tuner = kt.tuners.Sklearn(
-    oracle=kt.oracles.BayesianOptimization(
-        objective=kt.Objective('score', 'max'),
-        max_trials=10),
-    hypermodel=build_model,
-    scoring=metrics.make_scorer(metrics.accuracy_score),
-    cv=model_selection.StratifiedKFold(5),
-    directory=os.path.normpath('C:/keras_tuning'),
-    project_name='keras_tuner_sklearn_classifier_example_20_trials',
-    overwrite=True)
-
-X, y = datasets.load_iris(return_X_y=True)
-X_train, X_test, y_train, y_test = model_selection.train_test_split(X, y, test_size=0.2)
-
-tuner.search(X_train, y_train)
-
-#%%
-# test prediction with one of the trialed models: 
-best_model = tuner.get_best_models(num_models=1)[0]
-best_model.predict(X_test[2].reshape(1, -1))
-
-#%%
-# Check of the score value on the validation set:
-max_trials=10
-trials_scores = {}
-fit_models = tuner.get_best_models(num_models=max_trials)
-for trial_i in range(max_trials):
-  model_trial_name = 'model_trial_'+str(trial_i)
-  model_trial = fit_models[trial_i]
-  model_trial_preds = model_trial.predict(X_test)
-  model_trial_score = metrics.accuracy_score(y_test, model_trial_preds) #, multi_class='ovr')
-  # formamos diccionario con info de modelos entrenados
-  model_trial_dict={'model_params': fit_models[trial_i], 'validation_score': model_trial_score}
-
-  trials_scores[model_trial_name]=model_trial_dict
-
-trials_scores
-
-# %%
-test_pred = best_model.predict(X_test[2].reshape(1, -1))
-print('test prediction of the best model: {}'.format(test_pred))
-# %%
-#############################################################################
 #INFO: https://keras-team.github.io/keras-tuner/#keras-tuner-includes-pre-made-tunable-applications-hyperresnet-and-hyperxception
-
+import os
 import kerastuner as kt
 from sklearn import ensemble
 from sklearn import datasets
@@ -139,7 +70,7 @@ train_x, train_y = data[:, :-1], data[:, -1]
 tuner = kt.tuners.Sklearn(
           oracle=kt.oracles.BayesianOptimization(
               objective=kt.Objective('score', 'min'),
-              max_trials=6),
+              max_trials=10),
           hypermodel=build_model,
           scoring=make_scorer(mean_squared_error),
           ###adaptación propia para poder almacenar modelos H5 mediante este keras_tuner_sklearn
@@ -147,12 +78,12 @@ tuner = kt.tuners.Sklearn(
           ###
           #metrics=mean_squared_error,
           #cv=model_selection.StratifiedKFold(5),
-          directory=os.path.normpath('C:/keras_tuning'),
-          project_name='sklearn_bayesian_opt_time_series_example_60_ep_6_max_trials',
+          directory=os.path.normpath('C:/'),
+          project_name='sklearn_bayesian_opt_time_series_example_100_ep_10_max_trials',
           overwrite=True)
 #%%
 
-tuner.search(train_x, train_y, epochs=60, batch_size=10) #, validation_split=0.2,verbose=1) #epochs=n_epochs,
+tuner.search(train_x, train_y, epochs=100, batch_size=10) #, validation_split=0.2,verbose=1) #epochs=n_epochs,
 
 #%%
 models = tuner.get_best_models(num_models=-1)
@@ -186,7 +117,6 @@ model_trial_score = metrics.mean_squared_error(train_y, y_preds_2)
 print('rmse on train data: {}'.format(model_trial_score))
 model_trial_score = metrics.mean_squared_error(train_y, y_preds_3)
 print('rmse on train data: {}'.format(model_trial_score))
-
 model_trial_score = metrics.mean_squared_error(train_y, y_preds_4)
 print('rmse on train data: {}'.format(model_trial_score))
 model_trial_score = metrics.mean_squared_error(train_y, y_preds_5)
