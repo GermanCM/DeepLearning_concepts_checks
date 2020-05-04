@@ -1,4 +1,4 @@
-
+#%%
 import tensorflow as tf 
 import numpy as np 
 from numpy import random
@@ -23,6 +23,7 @@ def mnist_dataset():
     ds = ds.take(20000).shuffle(20000).batch(100)
     return ds
 
+#%%
 train_dataset = mnist_dataset()
 
 import tensorflow
@@ -33,13 +34,14 @@ model = tensorflow.keras.Sequential((
     tensorflow.keras.layers.Dense(100, activation='relu'),
     tensorflow.keras.layers.Dense(10)))
 
+#%%
 model.build()
 optimizer = tensorflow.keras.optimizers.Adam()
 
 compute_loss = tensorflow.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
 
 compute_accuracy = tensorflow.keras.metrics.SparseCategoricalAccuracy()
-
+#%%
 def train_one_step(model, optimizer, x, y):
     import tensorflow as tf
 
@@ -75,7 +77,10 @@ init_time = time.time()
 step, loss, accuracy = train(model, optimizer)
 print('Final step', step, ': loss', loss, '; accuracy', compute_accuracy.result())
 
+# %%
+import tensorflow as tf
+print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
 
-end_time = time.time()
-delta_time = end_time-init_time
-print('time taken to carry out np.square operation on np_array_a with tensorflow-gpu enabled: {}'.format(delta_time))
+# %%
+
+# %%
