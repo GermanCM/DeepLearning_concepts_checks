@@ -63,12 +63,11 @@ import os
 random_search_tuner = RandomSearch(
     build_model,
     objective='val_accuracy',
-    max_trials=5,
-    executions_per_trial=3,
-    #directory=r'./KERAS_TUNER_CHECKS',
-    #directory=os.path.normpath('.\keras_tuner_checks_logs'),
+    max_trials=1,
+    executions_per_trial=1,
     directory=os.path.normpath('C:/keras_tuning'),
-    project_name='iris_data_keras_random_search_tuner_test')
+    project_name='iris_data_keras_random_search_tuner_test_2',
+    overwrite=True)
 
 #%%
 from kerastuner import BayesianOptimization
@@ -76,12 +75,11 @@ from kerastuner import BayesianOptimization
 bayesian_opt_tuner = BayesianOptimization(
     build_model,
     objective='val_accuracy',
-    max_trials=5,
-    executions_per_trial=3,
-    #directory=r'./KERAS_TUNER_CHECKS',
-    #directory=os.path.normpath('.\keras_tuner_checks_logs'),
+    max_trials=1,
+    executions_per_trial=1,
     directory=os.path.normpath('C:/keras_tuning'),
-    project_name='iris_data_keras_bayesian_opt_tuner_test')
+    project_name='iris_data_keras_bayesian_opt_tuner_test_2',
+    overwrite=True)
 
 #%%[markdown]
 '''
@@ -120,7 +118,6 @@ print('number of bayesian optimized models: {}'.format(len(bayes_optimized_model
 random_searched_model_best_model = random_search_tuner.get_best_models(num_models=1)
 bayes_opt_model_best_model = bayesian_opt_tuner.get_best_models(num_models=1)
 
-
 # %%[markdown]
 # ### Evaluation score:
 #print('single prediction on a test instance: {}'.format(models[0].predict(X_test[-1].reshape(1, -1)))) 
@@ -145,7 +142,49 @@ categ_acc_bayes_opt_test_set = tensorflow.keras.metrics.CategoricalAccuracy()
 _ = categ_acc_bayes_opt_test_set.update_state(y_test, test_set_bayes_opt_best_model_predictions)
 print('bayes_opt_model_best_model_eval_set_acc: {}'.format(categ_acc_bayes_opt_test_set.result().numpy()))
 
+#%%
+# Save the best models, try also to save it with the built-in option:
 
+from tensorflow.keras.models import model_from_json
+
+directory_model_arch_json=os.path.normpath('C:/keras_tuning/iris_data_keras_bayesian_opt_tuner_test_2/model.json')
+directory_model_h5=os.path.normpath('C:/keras_tuning/iris_data_keras_bayesian_opt_tuner_test_2/model.h5')
+# serialize model to JSON
+bayesian_model_json = bayes_opt_model_best_model[0].to_json()
+with open(directory_model_arch_json, "w") as json_file:
+    json_file.write(bayesian_model_json)
+# serialize weights to HDF5
+bayes_opt_model_best_model[0].save_weights(directory_model_h5)
+print("Saved model to disk")
+
+#%%
+# Load model:
+from tensorflow.keras.models import model_from_json
+# load json and create model
+json_file = open(directory_model_arch_json, 'r')
+loaded_model_json = json_file.read()
+json_file.close()
+
+loaded_model = model_from_json(loaded_model_json)
+# load weights into new model
+loaded_model.load_weights(directory_model_h5)
+#%%
+print("Loaded model from disk")
+# evaluate loaded model on test data
+'''
+#loaded_model.compile(loss='binary_crossentropy', optimizer='rmsprop', metrics=['accuracy'])
+score = loaded_model.evaluate(X_test, y_test, verbose=0)
+print("%s: %.2f%%" % (loaded_model.metrics_names[1], score[1]*100))
+'''
+#loaded_model.predict(X_test)
+test_set_bayes_opt_loaded_model_predictions = loaded_model.predict(X_test)
+categ_acc_bayes_opt_loaded_model_test_set = tensorflow.keras.metrics.CategoricalAccuracy()
+_ = categ_acc_bayes_opt_loaded_model_test_set.update_state(y_test, test_set_bayes_opt_loaded_model_predictions)
+print('bayes_opt_model_best_model_eval_set_acc: {}'.format(categ_acc_bayes_opt_loaded_model_test_set.result().numpy()))
+
+
+#%%[markdown]
+### Re-run model trainings and hyperparam. pero con diferente número de max_trials (esto es, hyperparams combinations)
 
 
 # %%[markdown]
