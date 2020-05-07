@@ -75,10 +75,10 @@ from kerastuner import BayesianOptimization
 bayesian_opt_tuner = BayesianOptimization(
     build_model,
     objective='val_accuracy',
-    max_trials=1,
-    executions_per_trial=1,
+    max_trials=5,
+    executions_per_trial=2,
     directory=os.path.normpath('C:/keras_tuning'),
-    project_name='iris_data_keras_bayesian_opt_tuner_test_2',
+    project_name='iris_data_keras_bayesian_opt_tuner_test_3',
     overwrite=True)
 
 #%%[markdown]
