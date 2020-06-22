@@ -100,7 +100,8 @@ class ExploreDataset():
             return exc
 
 
-    def plot_timeseries_values(self, attribute_to_plot, category_type='all', mask_attribute_name=None, mask_attribute_value=None, date_column_name=None, graph_title=None):
+    def plot_timeseries_values(self, attribute_to_plot, category_type='all', mask_attribute_name=None, mask_attribute_value=None, 
+                                date_column_name=None, graph_title=None):
         """Representa la serie temporal de los valores correspondientes a: 
            - atributo indicado del dataframe, o
            - valores del atributo indicado para los registros que cumplan el filtro indicado
@@ -131,7 +132,7 @@ class ExploreDataset():
                 sorted_dataset = dataset.sort_values(by=date_column_name, ascending=True)
             
             fig = px.line(sorted_dataset, x=date_column_name, y=attribute_to_plot, title=graph_title)
-            fig.show()
+            return fig
 
         except Exception as exc:
             #log error with logger
@@ -169,11 +170,13 @@ class ExploreDataset():
                listas de nombres de atributos con distribución gaussiana y no gaussiana según el test de Saphiro  
         """
         try:
+            from scipy.stats import shapiro
+
             gaussian_attributes = []
             non_gaussian_attributes = []
             for col in selected_attributes:
                 # normality test
-                stat, p = shapiro(dataframe[col].values)
+                stat, p = shapiro(dataset[col].values)
                 print('Statistics=%.3f, p=%.3f' % (stat, p))
                 # interpret
                 alpha = 0.05
@@ -190,7 +193,7 @@ class ExploreDataset():
             #log error with logger
             print(exc)
             return exc
-    
+
 #%%
 class ProcessDataset():
     def __init__(self):
@@ -339,74 +342,63 @@ file_path = r'.\data\movementsSample.csv'
 explorer_obj = ExploreDataset()
 explorer_obj.read_dataset_from_csv(file_path)
 
-
 # %%
 print('categorías de movimientos: {}'.format(explorer_obj.dataset_.categoryDescription.unique()))
 
 # %% [markdown]
-# #Hipótesis --> habrá unas categorías cuya distribución temporal sea mucho más constante que otras, por ejemplo: se espera que la categoría 'MENAJE DEL HOGAR Y ELECTRÓNICA' no presente un claro patrón de consumo como sí lo deberíamos ver en 'GAS Y ELECTRICIDAD' <p>
-# #Prio --> calcular el techo de gasto mediano (y su std) para cada cliente; en base a este valor, podremos ajustar las estimaciones de consumo de un usuario a final de mes al menos para los que presenten un gasto uniforme (esto podría ser otro criterio de segmentación de tipo de clientes)
-# 
-# %% [markdown]
-# #Data_quality_check --> tenemos el mismo número de IDs de categorías que de descripciones?
+# * se intuye que habrá unas categorías cuya distribución temporal sea mucho más constante que otras, por ejemplo: se espera que la categoría 'MENAJE DEL HOGAR Y ELECTRÓNICA' no presente un claro patrón de consumo como sí lo deberíamos ver en 'GAS Y ELECTRICIDAD' 
+
+#%%[markdown]
+# * Data_quality_check --> tenemos el mismo número de IDs de categorías que de descripciones?
 
 # %%
-assert len(explorer_obj.dataset_['categoryDescription'].unique())==len(explorer_obj.dataset_['categoryId'].unique())
+assert len(explorer_obj.dataset_['categoryDescription'].unique())==len(explorer_obj.dataset_['categoryId'].unique()), \
+    print('número de valores distintos de categoryDescription : {} y número de valores distintos de categoryId : {}'.format(len(explorer_obj.dataset_['categoryDescription'].unique()), len(explorer_obj.dataset_['categoryId'].unique()))) 
 
-
-# %%
-print('número de valores distintos de categoryDescription : {} y número de valores distintos de categoryId : {}'.format(len(explorer_obj.dataset_['categoryDescription'].unique()), len(explorer_obj.dataset_['categoryId'].unique()))) 
-
-# %% [markdown]
-# ### Comprobamos qué categoryId nos sobra; para ello, vemos las combinaciones de description e ID:
+#%%[markdown]
+#### Comprobamos qué categoryId nos sobra; para ello, vemos las combinaciones de description e ID:
 
 # %%
-category_desc__ID_combinations = explorer_obj.dataset_[['categoryId', 'categoryDescription']].drop_duplicates()
-#category_desc__ID_combinations.categoryId.value_counts()
-category_desc__ID_combinations.categoryDescription.value_counts()
+category_desc_ID_combinations = explorer_obj.dataset_[['categoryId', 'categoryDescription']].drop_duplicates()
+category_desc_ID_combinations.categoryDescription.value_counts()
 
-# %% [markdown]
-# #### Vemos que la descripción duplicada corresponde a 'SIN CLASIFICAR', por lo que no se trata de una duplicidad a corregir
-# #### Podría ser interesante mirar la cuantía de movimientos no clasificados, en caso de que sea alta y de posible interés a identificar 
+#%%[markdown]
+# * Vemos que la descripción duplicada corresponde a 'SIN CLASIFICAR', por lo que no se trata de una duplicidad a corregir
+# * Podría ser interesante mirar la cuantía de movimientos no clasificados, en caso de que sea alta y de posible interés a identificar 
 
-# %%
-# añadimos este dataset de combinaciones a nuestro objeto exploratorio:
-explorer_obj.category_desc__ID_combinations = category_desc__ID_combinations
+#%%[markdown]
+# * añadimos este dataset de combinaciones a nuestro objeto exploratorio:
+explorer_obj.category_desc_ID_combinations = category_desc_ID_combinations
 
-if explorer_obj.category_desc__ID_combinations.to_dict==category_desc__ID_combinations.to_dict:
-    category_desc__ID_combinations=None
+if explorer_obj.category_desc_ID_combinations.to_dict()==category_desc_ID_combinations.to_dict():
+    category_desc_ID_combinations=None
 
-# %% [markdown]
-# ### Representamos los valores de alguna serie temporal
+#%%[markdown]
+#### Representamos los valores de alguna serie temporal
 
-# %%
-#Unit_test 
+#%%[markdown]
+# * Añadimos el atributo 'date' de forma que nos facilite la representación gráfica en formato de serie temporal:
 from datetime import datetime
 
 assert datetime(2017, 1, 1, 0, 0)==explorer_obj.generate_date(2017, 1, 1) 
 
-# %%
-#explorer_obj.dataset_['date'] = explorer_obj.add_date_attribute(year_column_name='year', month_column_name='month')
+#%%
 import pandas as pd 
-import time
 
-init_time = time.time()
-explorer_obj.dataset_['date'] = pd.Series(explorer_obj.dataset_.index).apply(lambda idx: explorer_obj.generate_date(explorer_obj.dataset_.iloc[idx]['year'], explorer_obj.dataset_.iloc[idx]['month'])) 
-#Nice_to_have --> EFICIENTAR
-
-print('process time: {}'.format((time.time() - init_time)))
+explorer_obj.add_date_attribute('year', 'month', day_column_name=28)
 explorer_obj.dataset_.tail(5)
 
-# %%
+#%%
 nominas_mask = explorer_obj.dataset_['categoryDescription']=='NÓMINAS'
 dataset_nominas = explorer_obj.dataset_[nominas_mask]
 assert len(dataset_nominas)>0
 print('número de registros con tipo de movimiento ''NOMINA'': {}'.format(len(dataset_nominas)))
 
 # %% [markdown]
-# ### Contamos el porcentaje de clientes que tienen algún movimiento para cada categoría: 
-# %%
-categories = explorer_obj.category_desc__ID_combinations.categoryDescription.values
+#### Contamos el porcentaje de clientes que tienen algún movimiento para cada categoría: 
+# %%[markdown]
+#### este código iría en una función de la clase de exploratorio
+categories = explorer_obj.category_desc_ID_combinations.categoryDescription.values
 clients_number = len(explorer_obj.dataset_.associatedAccountId.unique())
 category_freqs_df = pd.DataFrame(columns=['category', 'usage_ratio'])
 for category in categories:
@@ -416,7 +408,6 @@ for category in categories:
             'usage_ratio': len(dataset_with_category_type)/clients_number}, ignore_index=True)
 
 #%%
-# HACER ESTO CON EL MÉTODO DEFINIDO EN SU CLASE
 import plotly.express as px
 
 explorer_obj.category_freqs_df_ = category_freqs_df
@@ -425,7 +416,6 @@ fig.show()
 
 #%% libero memoria
 category_freqs_df=None
-
 
 # %% [markdown]
 ### #Nice_to_have 
@@ -446,36 +436,60 @@ explorer_obj.dataset_.merge(median_spents_by_category, how='right', on='category
 #client_ID=43396928
 #explorer_obj.plot_timeseries_values(attribute_to_plot="monthlySpent", mask_attribute_name='associatedAccountId', mask_attribute_value=client_ID, date_column_name='date', graph_title='Nóminas cliente {}'.format(client_ID))
 
-#%%
+# %%[markdown]
+#### este código iría en una función de la clase de exploratorio
 import plotly.express as px
 
-client_ID=43396928
-client_ID=dataset_nominas['associatedAccountId'].unique()[39]
+client_ID=explorer_obj.dataset_['associatedAccountId'].unique()[77]
+client_mask = explorer_obj.dataset_['associatedAccountId']==client_ID
+client_df = explorer_obj.dataset_[client_mask]
+client_nominas_mask = client_df['categoryDescription']=='NÓMINAS'
+client_nominas_df = client_df[client_nominas_mask]
+sorted_client_nominas = client_nominas_df.sort_values(by='date', ascending=True)
+fig = px.line(sorted_client_nominas, x="date", y="monthlySpent", title='Nóminas de cliente {}'.format(client_ID))
+fig.show()
 
-client_mask = dataset_nominas['associatedAccountId']==client_ID
-sorted_client_nominas = dataset_nominas[client_mask].sort_values(by='date', ascending=True)
-fig = px.line(sorted_client_nominas, x="date", y="monthlySpent", title='Nóminas cliente {}'.format(client_ID))
+#%%
+client_ID=explorer_obj.dataset_['associatedAccountId'].unique()[40]
+client_mask = explorer_obj.dataset_['associatedAccountId']==client_ID
+client_df = explorer_obj.dataset_[client_mask]
+client_nominas_mask = client_df['categoryDescription']=='NÓMINAS'
+client_nominas_df = client_df[client_nominas_mask]
+sorted_client_nominas = client_nominas_df.sort_values(by='date', ascending=True)
+fig = px.line(sorted_client_nominas, x="date", y="monthlySpent", title='Nóminas de cliente {}'.format(client_ID))
 
 fig.show()
+
+client_ID=explorer_obj.dataset_['associatedAccountId'].unique()[88]
+client_mask = explorer_obj.dataset_['associatedAccountId']==client_ID
+client_df = explorer_obj.dataset_[client_mask]
+client_nominas_mask = client_df['categoryDescription']=='NÓMINAS'
+client_nominas_df = client_df[client_nominas_mask]
+sorted_client_nominas = client_nominas_df.sort_values(by='date', ascending=True)
+fig = px.line(sorted_client_nominas, x="date", y="monthlySpent", title='Nóminas de cliente {}'.format(client_ID))
+
+fig.show()
+
+#%%
+# liberamos memoria:
+client_nominas_df=client_df=client_nominas_mask=client_mask=None
 
 # %% [markdown]
 '''
 Esos picos parecen indicar pagas extras. En los casos donde vemos esos picos pero no coinciden
 con los meses esperados (junio y diciembre) y/o no son semestrales, podríamos hacer uso de análisis 
-de texto del campo 'concepto' (si lo hubiera) correspondiente a tal movimiento, por ejemplo el cliente
-43396928
+de texto del campo 'concepto' (si lo hubiera) correspondiente a tal movimiento
 '''
 
 # %%
-client_ID=38361820 #29292026
+client_ID=38361820 
 client_mask = dataset_nominas['associatedAccountId']==client_ID
 sorted_client_nominas = dataset_nominas[client_mask].sort_values(by='date', ascending=True)
 fig = px.line(sorted_client_nominas, x="date", y="monthlySpent", title='Nóminas cliente {}'.format(client_ID))
 fig.show()
 
-# %% [markdown]
-#Nice_to_have
-#### anomalía gordísima (generar atributo de anomalías univariables para cada registro de cada cliente en cada producto?)
+#%% [markdown]
+#### podría ser interesante generar atributo con elñ score de anomalía univariable por cada registro de cada cliente en cada producto?)
 
 #%%
 # Y si ploteamos la suma de todos los movimientos para este cliente que puedan relacionarse con mayor gasto?
@@ -492,15 +506,12 @@ fig.show()
 #%%[markdown]
 #Hipothesis
 '''
-Se aprecian máximos locales en torno a los meses de julio y diciembre--> makes sense, esto habría que corroborarlo con 
-un valor relativamente alto de correlación entre tipo de gastos e ingresos <p>
-
-En cambio para el 38361820 no existe esa correlación de picos de consumo en las categorías consideradas VS pagas extras
-Vamos a probar si 'TRANSFERENCIAS DE ENTRADA' podría tener esa correlación en caso de tratarse de ahorro?
+Se aprecian máximos locales en torno a los meses de julio y diciembre para lo que parecen ser asalariados. En cambio para otros cleintes 
+no existe ese patrón; esto nos ayudaría a perfilar clientes por tipo de sueldo (asalariados, autónomos, etc)
 '''
 #%%
 categoria_transf_entrada = ['TRANSFERENCIAS DE ENTRADA']
-client_id = 38361820 #29292026
+client_id = 38361820 
 client_mask = explorer_obj.dataset_['associatedAccountId']==client_id
 this_client_ds = explorer_obj.dataset_[client_mask]
 gastos_mask = [gasto in categoria_transf_entrada for gasto in this_client_ds['categoryDescription'].values]
@@ -511,115 +522,82 @@ fig.show()
 #%%
 '''
 Vemos que el cliente 38361820 tiene movimientos de 'TRANSFERENCIAS DE ENTRADA' (en principio de bajo importe) 
-hasta junio de 2019 mientras que los de nómina acabaron en 2018. Un atributo extra podría ser la variación del
-número de tipos de movimiento en los últimos x meses con esta entidad bancaria, con peso específico por importe asociado; 
-esto podría dar información para predicción de fuga de clientes o de presencia en la entidad
+hasta junio de 2019 mientras que los de nómina acabaron en 2018. Un atributo extra podría construirse modelando la tendencia, si la hubiera, 
+de ciertas categorías de interés con una ventana móvil de x meses; esto podría dar información para predicción de fuga de clientes?
 '''
 
 #%%
+'''
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 
-fig = make_subplots(rows=2, cols=2, subplot_titles=("SUPERMERCADOS Y ALIMENTACIÓN", "GAS Y ELECTRICIDAD", "MODA", "RESTAURACIÓN"))
+sorted_client_movs = this_client_ds.sort_values(by='date', ascending=True)
+
+fig = make_subplots(rows=2, cols=2, subplot_titles=("TRANSFERENCIAS DE ENTRADA", "GAS Y ELECTRICIDAD", "MODA", "RESTAURACIÓN"))
 
 fig.add_trace(
-    go.Scatter(x=client_38361820_history_set.date, y=client_38361820_history_set["SUPERMERCADOS Y ALIMENTACIÓN"], 
+    go.Scatter(x=sorted_client_movs.date, y=sorted_client_movs["TRANSFERENCIAS DE ENTRADA"], 
             mode='lines+markers+text'), row=1, col=1
 )
 fig.add_trace(
-    go.Scatter(x=client_38361820_history_set.date, y=client_38361820_history_set["GAS Y ELECTRICIDAD"], 
+    go.Scatter(x=sorted_client_movs.date, y=sorted_client_movs["GAS Y ELECTRICIDAD"], 
             mode='lines+markers+text'), row=1, col=2
 )
 
 fig.add_trace(
-    go.Scatter(x=client_38361820_history_set.date, y=client_38361820_history_set["MODA"], 
+    go.Scatter(x=sorted_client_movs.date, y=sorted_client_movs["MODA"], 
             mode='lines+markers+text'), row=2, col=1
 )
 
 fig.add_trace(
-    go.Scatter(x=client_38361820_history_set.date, y=client_38361820_history_set["RESTAURACIÓN"], 
+    go.Scatter(x=sorted_client_movs.date, y=sorted_client_movs["RESTAURACIÓN"], 
             mode='lines+markers+text'), row=2, col=2
 )
 
 fig.update_layout(margin={"r":10,"t":60,"l":10,"b":10}, height=600, width=710, showlegend=False, paper_bgcolor="#EBF2EC") 
 fig.show()
-
+'''
 
 #%%[markdown]
 #### Construyo el dataset basado en los lag values de cada tipo de gasto, así:
 # * metemos 0 en los meses donde un cliente no tiene movimiento en un tipo de gasto
 # * pasamos el check de missing values
-# * mencionamos que no vamos a aplicar criterio de anomalía basada en importe en ppio
-# * paso el profiling apra generar el EDA report, y reviso corr matrix
-# * para esto anterior, paso el check de normal distribution para coger o no la pearson corr coeff u otra no param.
-# * para la variable de interés, es white noise?
+# * formamos el dataset traspuesto generando un atributo por cada tipo de movimiento
+# * para encontrar posibles correlaciones, aplicamos el check de normal distribution para coger o no la pearson corr coeff u otra no paramétrica
+# * para la variable de interés, es white noise? Aunque esto aplica a la serie de la categoría y no en principio a su relación con el resto
 # * para cada variable temporal, son estacionarias?
-# * checkear la distribución de residuos tras hacer el forecast and check if white noise?
-# * para abordar el problema p >> n, miraremos: selección de atributos (en ppio por correlaciones) y/o PCA
-# * mencionar que dependiendo de la antelación con la que necesitemos predecir posibles gastos de movimientos, necesitaríamos crear como variable objetivo un single-step (a un mes), o etiquetar con el de x meses a futuro, o hacer un multi-step forecast 
-# * mencionar que podríamos probar a agrupar categorías por super tipos de categorías
+# * se puede checkear la distribución de residuos tras hacer el forecast para comprobar si es ruido blanco y podría haber margen de mejora en el modelo
+# * para abordar el problema p >> n, miraremos: selección de atributos (en ppio por correlaciones) y/o PCA (aunque esto podría restar interpretabilidad a posteriori)
+# * dependiendo de la antelación con la que necesitemos predecir posibles gastos de movimientos, necesitaríamos crear un "single-step forecast" (a un mes), o etiquetar con x meses a futuro, o hacer un multi-step forecast 
+# * podríamos probar a agrupar categorías por super tipos de categorías para reducir la relación numero_filas-número_columnas del dataset
 
 # %% [markdown]
-#### Empezaría por una segmentación basada en un criterio sencillo y útil; posteriormente haría el multivariable
-#### Podría segmentar clientes por tipo de ingresos? Los que presenten patrones más repetitivos con picos en torno a junio y diciembre podrían ser asalariados, mientras que otros como éste podrían ser autónomos etc?
+#### Empezaría por una segmentación basada en un criterio sencillo y útil; posteriormente haría el multivariable basado por ejemplo en k-means (con métrica euclídea y sin el problema de tener variables discontínuas)
 #### Pensar en categorizar tipos de productos por relevancia: podría ser por cuantía mediana de movimientos de esa categoría, o por número agregado entre todos los clientes
-#### De cara a modelar, nuestros modelos podrían validarse en base a que los intervalos de confianza de las variables predichas no excedieran el techo de gasto o movimientos (si lo hubiera)
-
-#%%[markdown]
-#### Formamos el dataset traspuesto generando un atributo por cada tipo de movimiento
-# * por cada año-mes, podemos ver la evolución de tipos de movimientos; por ejempo el cliente 38361820 va aumentando el tipo de movimientos en la entidad   
-# *
-# *
-
-#%%
-import pandas as pd 
-
-explorer_obj.dataset_['date'] = pd.Series(explorer_obj.dataset_.index).apply(lambda idx: explorer_obj.generate_date(explorer_obj.dataset_.iloc[idx]['year'], explorer_obj.dataset_.iloc[idx]['month'])) 
-
-#%%
-client_id = explorer_obj.dataset_['associatedAccountId'][25] #38361820
-processor_obj = ProcessDataset()
-#%%
-processor_obj.dataset_ = explorer_obj.dataset_
-#%%
-this_client_history_set = processor_obj.build_client_dataset(client_id)
-#%%
-this_client_history_set = processor_obj.impute_missing_values(this_client_history_set, 0)
-len(this_client_history_set)
+#### De cara a modelar, nuestros modelos podrían validarse en base a que los intervalos de confianza de las variables predichas no excedieran el techo medio (mediano) de gasto o movimientos (si lo hubiera)
 
 #%%[markdown]
 # * Queremos ver la distribución de número de meses durante los que los clientes tienen movimientos con el banco
 # * Esto es relevante de cara a conocer con qué históricos contamos por cliente
-#%%[markdown]
-# * Una vez tengamos los datasets de cada cliente, podríamos hacer el profiling para entre otras cosas enconrtar correlaciones
-# * Por cada serie de interés a predecir, podríamos comprobar posible white noise (pero recordar que puede intentarse regresión sin estructura temporal)
-# * Por ahora intentamos baseline VS LSTM en un cliente con suficinete histórico
 
 #%%[markdown]
-#### Pasamos un corr coeff al histórico de un cliente
-client_id = this_client_history_set['associatedAccountId'][1] # 38361820
-client_id
-#%%
-processor_obj = ProcessDataset()
-processor_obj.dataset_ = explorer_obj.dataset_
-this_client_history_set = processor_obj.build_client_dataset(client_id)
-this_client_history_set
-#%%
-this_client_history_set = processor_obj.impute_missing_values(this_client_history_set, 0)
-this_client_history_set
-#%%
-# source: https://seaborn.pydata.org/examples/many_pairwise_correlations.html
+### Posibles enfoques a la hora de modelar el predictor:
+#### Baseline model basado simplemente en persistir el valor anterior de la serie
+#### Enfoque de histórico individual por cliente --> handicap: tendríamos tantos modelos como clientes (753) además de no contar con suficiente histórico para muchos ed ellos
+#### Enfoque de histórico por segmento de cliente --> esto resolvería en parte (dependiendo de cuántos clusters tuviéramos) el problema del número de modelos = número de clientes;
+#### en cambio para el anterior enfoque tendríamos para cada valor 'date' varios valores, por lo que: 
+# * se podrían obtener los valores medianos de cada categoría en cada valor de tiempo, o
+# * se podría convertir nuestro dataset en formato "supervisado" donde no sería necesario el orden temporal, convirtiéndolo en un problema de regresión multivariable   
+
+# %%[markdown]
+'''
+#### este código iría en una función de la clase de exploratorio
 from string import ascii_letters
 import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-sns.set(style="white")
-# Generate a large random dataset
-import numpy as np 
-
-rs = np.random.RandomState(33)
 columns_desired = list(this_client_history_set.columns)
 columns_desired.remove('associatedAccountId')
 
@@ -635,8 +613,9 @@ cmap = sns.diverging_palette(220, 10, as_cmap=True)
 # Draw the heatmap with the mask and correct aspect ratio
 sns.heatmap(corr, mask=mask, cmap=cmap, vmax=.3, center=0,
             square=True, linewidths=.5, cbar_kws={"shrink": .5})
+'''
 #%%[markdown]
-#### Ahora para todos los clientes para que dichas correlaciones puedan ser significativas:
+# * formamos el dataset transponiendo los valroes de las categorías como atributos: 
 all_clients_history_set=pd.DataFrame()
 clients_with_errors=list()
 history_length_per_client_dict = {}
@@ -645,15 +624,15 @@ for client_id in explorer_obj.dataset_['associatedAccountId'].unique():
         processor_obj = ProcessDataset()
         processor_obj.dataset_ = explorer_obj.dataset_
         this_client_history_set = processor_obj.build_client_dataset(client_id)
-        this_client_history_set = processor_obj.impute_missing_values(this_client_history_set, 0)
+        this_client_history_set = processor_obj.impute_missing_value(this_client_history_set, 0)
         all_clients_history_set = all_clients_history_set.append(this_client_history_set)
         history_length_per_client_dict[client_id] = len(all_clients_history_set)
     except Exception as exc:
-        #clients_with_errors=clients_with_errors.append(client_id)
+        #este error iría a un logger de errores
         print('client {} gave an error: {}'.format(client_id, exc))
         pass
 
-history_length_per_client_dict
+history_length_per_client_dict.tail(10)
 
 #%%[markdown]
 # * cogería sólo los datasets de los clientes con más registros mensuales para busar mayor representatividad (info en history_length_per_client_dict)
@@ -664,9 +643,10 @@ values = [value for key, value in history_length_per_client_dict.items()]
 ax = sns.distplot(values)
 
 #%%
-selected_client_IDs = [key for key, value in history_length_per_client_dict.items() if value > 15000]
+selected_client_IDs = [key for key, value in history_length_per_client_dict.items() if value > 10000]
 
-#%%
+#%%[markdown]
+# * formamos el dataset con el histórico de los clientes con un histórico aceptado como suficiente
 selected_clients_history_set=pd.DataFrame()
 for client_ID in selected_client_IDs:
     client_mask = all_clients_history_set['associatedAccountId']==client_ID
@@ -674,70 +654,52 @@ for client_ID in selected_client_IDs:
     selected_clients_history_set = selected_clients_history_set.append(client_ID_df)
 
 #%%[markdown]
-#### Obtenemos también los valores medianos (no medios) de cada atributo por cada cliente, para estudiar luego posibles correlaciones:
+#### Obtenemos también los valores medianos de cada atributo por cada cliente, para estudiar luego posibles correlaciones:
 selected_clients_columns = list(selected_clients_history_set.columns)
 selected_clients_columns.remove('associatedAccountId')
 
 selected_clients_history_set = processor_obj.impute_missing_value(selected_clients_history_set, 0)
-
-selected_clients_median_values = selected_clients_history_set.groupby(by='associatedAccountId')[selected_clients_columns].median()
+selected_clients_history_set['date']=selected_clients_history_set.index
+selected_clients_median_values = selected_clients_history_set.groupby(by=['date', 'associatedAccountId'])[selected_clients_columns].median()
+#%%
+selected_clients_history_set=selected_clients_history_set.drop(['date'], axis=1)
 
 #%%[markdown]
 #### Comprobamos si los atributos considerados siguen una distribución normal
 ### Añadimos otro test de normalidad:
+explore_obj = ExploreDataset()
+gaussian_attributes, non_gaussian_attributes = explore_obj.check_if_gaussian(selected_clients_median_values, selected_clients_columns)
 
-client_id = selected_clients_history_set['associatedAccountId'][5]
-this_client_mask = selected_clients_history_set['associatedAccountId'] == client_id 
-this_client_ds = selected_clients_history_set[this_client_mask]
-
-#%%[markdown]
-#### escogemos los atributos que no suponen un valor medio = 0
-non_zero_spents_mask = selected_clients_median_values.loc[client_id] > 0
-this_client_ds[non_zero_spents_mask.values]
-
-#%%
-gaussian_attributes, non_gaussian_attributes = explorer_obj.check_if_gaussian(this_client_ds,
-                                                    selected_clients_columns)
-#%%
-print('gaussian_attributes: {}'.format(gaussian_attributes))
-print('non_gaussian_attributes: {}'.format(non_gaussian_attributes))
 
 #%%[markdown]
-#### Probamos otro cliente:
+#### Probamos con el histórico de un cliente para abordar un forecast model:
 client_id = selected_clients_history_set['associatedAccountId'][25]
 this_client_mask = selected_clients_history_set['associatedAccountId'] == client_id 
 this_client_ds = selected_clients_history_set[this_client_mask]
+this_client_mask=None
 this_client_ds
 
 #%%[markdown]
-#### escogemos los atributos que no suponen un valor medio = 0
-non_zero_selected_attributes = ['TRANSFERENCIAS DE ENTRADA', 'OPERACIONES CAJERO']
+# * escogemos atributos que no tiene de valor medio = 0
+columns_to_select = list(this_client_ds.columns)
+non_zero_selected_attributes_mask = this_client_ds[columns_to_select].groupby(by=['associatedAccountId']).mean() > 0
+non_zero_attrs = list(non_zero_selected_attributes_mask.columns[non_zero_selected_attributes_mask.values[0]])
+non_zero_attrs.remove('month')
 
 #%%
-gaussian_attributes, non_gaussian_attributes = explorer_obj.check_if_gaussian(this_client_ds,
-                                                    non_zero_selected_attributes)
+gaussian_attributes, non_gaussian_attributes = explore_obj.check_if_gaussian(this_client_ds,
+                                                    non_zero_attrs)
 print('gaussian_attributes: {}'.format(gaussian_attributes))
 print('non_gaussian_attributes: {}'.format(non_gaussian_attributes))
 
 #%%[markdown]
 #### Parece que las distribuciones de los atributos no son gaussianas, por lo que emplearemos el método Kendall para distribuciones no paramétricas
-d = this_client_ds[non_zero_selected_attributes]
-# Compute the correlation matrix
-corr = d.corr(method='kendall')
-# Generate a mask for the upper triangle
-mask = np.triu(np.ones_like(corr, dtype=np.bool))
-# Set up the matplotlib figure
-f, ax = plt.subplots(figsize=(11, 9))
-# Generate a custom diverging colormap
-cmap = sns.diverging_palette(220, 10, as_cmap=True)
-# Draw the heatmap with the mask and correct aspect ratio
-sns.heatmap(corr, mask=mask, cmap=cmap, vmax=.3, center=0,
-            square=True, linewidths=.5, cbar_kws={"shrink": .5})
+# * esto iría en una función de la clase de exploratorio
+import matplotlib.pyplot as plt
 
-#%%
-d = this_client_ds[non_zero_selected_attributes]
+dataset = this_client_ds[non_zero_attrs]
 # Compute the correlation matrix
-corr = d.corr(method='spearman')
+corr = dataset.corr(method='kendall')
 # Generate a mask for the upper triangle
 mask = np.triu(np.ones_like(corr, dtype=np.bool))
 # Set up the matplotlib figure
@@ -750,65 +712,19 @@ sns.heatmap(corr, mask=mask, cmap=cmap, vmax=.3, center=0,
 
 
 #%%[markdown]
-'''
-Vamos a crear atributos a partir de los valores pasados de cada uno de los existentes; en una estructura de serie temporal,
-esperaríamos encontrar cierta correlación entre valores presentes y pasados al menos si se aprecia cierta repetición según 
-la frecuencia de muestreo, mensual en este caso
-'''
-'''
-def series_to_supervised(dataset, n_in, n_out=1):
-    #source: Jason Brownlee's time series book
-    try:
-        import pandas as pd 
-        df = pd.DataFrame(dataset)
-        cols = list()
-        # input sequence (t-n, ... t-1)
-        for i in range(n_in, 0, -1):
-            cols.append(df.shift(i))
-        # forecast sequence (t, t+1, ... t+n)
-        for i in range(0, n_out):
-            cols.append(df.shift(-i))
-        # put it all together
-        agg = pd.concat(cols, axis=1)
-        # drop rows with NaN values
-        agg.dropna(inplace=True)
-
-        return agg.values
-
-    except Exception as exc:
-            #log error with logger
-            print(exc)
-            return exc
-'''
-#%%[markdown]
-#### Pruebo con el cliente con ID
-client_id = selected_client_IDs[10]
-this_client_mask = selected_clients_history_set['associatedAccountId'] == client_id 
-this_client_ds = selected_clients_history_set[this_client_mask]
-
-this_client_ds['date']=this_client_ds.index
-fig = px.line(this_client_ds, x="date", y="NÓMINAS", title='Nóminas cliente {}'.format(client_ID))
-fig.show()
-
-#%%[markdown]
-#### escogemos los atributos que no suponen un valor medio = 0
-
-this_client_median_values = this_client_ds.groupby(by='associatedAccountId')[selected_clients_columns].median()
-non_zero_spents_mask = this_client_median_values[0] > 0
-non_zero_spents_mask
-#%%
-desired_columns_client = this_client_median_values.columns[non_zero_spents_mask.values[0]]
-this_client_ds.columns[desired_columns_client]
-
-#%%[markdown]
-#### probamos a generar los atributos que son 1 y 2 meses de valores anteriores
-#series_to_supervised(this_client_ds[['TRANSFERENCIAS DE SALIDA', 'COMPRA ONLINE',
-#       'GAS Y ELECTRICIDAD']], 3, n_out=1)
-data_sup=series_to_supervised(this_client_ds[['TRANSFERENCIAS DE SALIDA']], 2, n_out=1)
+# * y si probamos a generar los atributos que son valores de 1 y 2 meses anteriores?
+# * esto que sigue iría en la clase preprocesadora del dataset
+data_sup = processor_obj.series_to_supervised(this_client_ds[['TRANSFERENCIAS DE SALIDA']], 2, n_out=1)
 series_to_supervised_df = pd.DataFrame(columns=['transf_sal_past_2', 'transf_sal_past_1', 
                                                 'transf_sal_past_0'], data=data_sup)
+series_to_supervised_df
+
+#%%[markdown]
+# * lo anterior se podría aplicar a cada uno de los atributos (categorías de gasto) consideradas, creando n_attributos*n_lags atributos finales
+# * este dataset resultante, etiquetando como variable objetivo los valores del último 'date_time' de la categoría a predecir, se podría utilizar con algoritmos de machine learning sin necesidad de orden temporal 
 
 #%%
+'''
 data_sup=series_to_supervised(this_client_ds[['TRANSFERENCIAS DE SALIDA', 'COMPRA ONLINE']], 2, n_out=1)
 data_sup
 #%%
@@ -816,14 +732,13 @@ series_to_supervised_df = pd.DataFrame(columns=['transf_sal_past_2', 'online_sho
                                                 'transf_sal_past_1', 'online_shop_past_1',
                                                 'transf_sal_past_0', 'online_shop_past_0'],
                                                 data=data_sup)
-
-series_to_supervised_df
+'''
 
 #%%[markdown]
-#### Y ahora tenemos mayor correlación?
-d = series_to_supervised_df
+##### Y ahora tenemos mayor correlación del atributo 'TRANSFERENCIAS DE SALIDA' con valores pasados del mismo?
+dataset = series_to_supervised_df
 # Compute the correlation matrix
-corr = d.corr(method='pearson')
+corr = dataset.corr(method='kendall')
 # Generate a mask for the upper triangle
 mask = np.triu(np.ones_like(corr, dtype=np.bool))
 # Set up the matplotlib figure
@@ -835,20 +750,7 @@ sns.heatmap(corr, mask=mask, cmap=cmap, vmax=.3, center=0,
             square=True, linewidths=.5, cbar_kws={"shrink": .5})
 
 #%%[markdown]
-### Check: lo está haciendo bien?
-fig = px.line(this_client_ds, x="date", y="COMPRA ONLINE", 
-              title='COMPRA ONLINE cliente {}'.format(client_ID))
-fig.show()
-
-#%%[markdown]
-#### Podríamos intentar crear categorías de movimientos que engloben a varias de las ya existentes
-
-#%%[markdown]
-#### Una vez realizados estos exploratorios y checks varios sobre la naturaleza de nuestros datos, intentamos agrupar a los clientes por tipos
-
-#####################
-#%%[markdown]
-#### ACF/PACF por variable de interés
+#### otra forma de comprobar si la propia variable podría ser explicada por sí misma con valores anteriores es mediante la función de auto-correlación: 
 from matplotlib import pyplot
 from pandas.plotting import autocorrelation_plot
 
@@ -857,16 +759,24 @@ values = this_client_ds['TRANSFERENCIAS DE SALIDA']
 values = pd.DataFrame(values)
 autocorrelation_plot(values)
 pyplot.show()
-#####################
+
+#%%[markdown]
+# * no parece haber algunos lags estadísticamente significativos en esta variable
+# * Podríamos intentar crear categorías de movimientos que engloben a varias de las ya existentes
+# * Una vez realizados estos exploratorios y checks varios sobre la naturaleza de nuestros datos, intentaríamos agrupar a los clientes por tipos
 
 
 #%%[markdown]
-# * Modelo baseline naive: de persistencia
+#### Ahora intentamos abordar el modelado del predictor:
+# * Comenzamos con un modelo baseline naive: de persistencia
 naive_m_dataframe = series_to_supervised_df[['transf_sal_past_1', 'transf_sal_past_0']]
-naive_m_dataframe
+naive_m_dataframe.tail(10)
 
-#%%
-# split into train and test sets
+#%%[markdown]
+# * creamos train y test sets
+# * creamos el modelo de persistencia del valor anterior 
+# * para este modelo no tenemos en cuenta la escala de los atributos 
+# * calculamos el mean-squared-error (el código asociado de esto iría en una clase dedicada)
 X = naive_m_dataframe.values
 train_size = int(len(X) * 0.7)
 train, test = X[1:train_size], X[train_size:]
@@ -874,24 +784,33 @@ train_X, train_y = train[:,0], train[:,1]
 test_X, test_y = test[:,0], test[:,1]
 # persistence model
 predictions = [x for x in test_X]
-predictions
-#%%
-# calculate residuals
-residuals = [test_y[i]-predictions[i] for i in range(len(predictions))]
-residuals = pd.DataFrame(residuals)
-autocorrelation_plot(residuals)
-pyplot.show()
-print(residuals)
 
+from sklearn.metrics import mean_squared_error
+
+mse_value = mean_squared_error(test_y, predictions)
+print('mse_value: {}'.format(mse_value))
+
+#%%[markdown]
+# * faltaría añadir intervalo de confianza asociado 
 
 #%%[markdown]
 # * COMO SIGUIENTES MODELOS PODRÍAMOS PROBAR ARIMA MULTIVARIABLE, 
 # * MODELOS DE REGRESIÓN COMO Support-Vector-Regressor, Decission-tree-regressor... con el dataset transformado a formato supervisado
 # * PROBAMOS LSTM MULTIVARIATE:
 
-desired_categories = ['TRANSFERENCIAS DE SALIDA', 'COMPRA ONLINE', 'GAS Y ELECTRICIDAD'] 
-fig = make_subplots(rows=4, cols=1, subplot_titles=(['TRANSFERENCIAS DE ENTRADA', 'TRANSFERENCIAS DE SALIDA', 
-                                                    'COMPRA ONLINE', 'SUPERMERCADOS Y ALIMENTACIÓN']))
+#%%[markdown]
+# * ploteamos variables de interés del dataset escogido (de un cliente por sencillez)
+
+from plotly.subplots import make_subplots
+import plotly.graph_objects as go
+
+
+this_client_ds['date'] = this_client_ds.index
+
+desired_categories = ['TRANSFERENCIAS DE ENTRADA', 'TRANSFERENCIAS DE SALIDA', 
+                                                    'COMPRA ONLINE', 'SUPERMERCADOS Y ALIMENTACIÓN', 
+                                                    'AUTOPISTAS GASOLINERAS Y PARKINGS', 'NÓMINAS'] 
+fig = make_subplots(rows=3, cols=2, subplot_titles=(desired_categories))
 
 fig.add_trace(
     go.Scatter(x=this_client_ds.date, y=this_client_ds['TRANSFERENCIAS DE ENTRADA'], 
@@ -899,16 +818,27 @@ fig.add_trace(
 )
 fig.add_trace(
     go.Scatter(x=this_client_ds.date, y=this_client_ds['TRANSFERENCIAS DE SALIDA'], 
-            mode='lines+markers+text'), row=2, col=1
+            mode='lines+markers+text'), row=1, col=2
 )
 fig.add_trace(
     go.Scatter(x=this_client_ds.date, y=this_client_ds['COMPRA ONLINE'], 
-            mode='lines+markers+text'), row=3, col=1
+            mode='lines+markers+text'), row=2, col=1
 )
 fig.add_trace(
     go.Scatter(x=this_client_ds.date, y=this_client_ds['SUPERMERCADOS Y ALIMENTACIÓN'], 
-            mode='lines+markers+text'), row=4, col=1
+            mode='lines+markers+text'), row=2, col=2
 )
+fig.add_trace(
+    go.Scatter(x=this_client_ds.date, y=this_client_ds['AUTOPISTAS GASOLINERAS Y PARKINGS'], 
+            mode='lines+markers+text'), row=3, col=1
+)
+fig.add_trace(
+    go.Scatter(x=this_client_ds.date, y=this_client_ds['NÓMINAS'], 
+            mode='lines+markers+text'), row=3, col=2
+)
+
+this_client_ds=this_client_ds.drop(['date'], axis=1)
+
 fig.update_layout(margin={"r":10,"t":60,"l":10,"b":10}, height=600, width=710, showlegend=False, paper_bgcolor="#EBF2EC") 
 fig.show()
 
