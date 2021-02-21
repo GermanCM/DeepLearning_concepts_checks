@@ -103,3 +103,5 @@ venv.bak/
 # mypy
 .mypy_cache/
 .vscode/settings.json
+project/.DS_Store
+project/KERAS_TUNER_CHECKS/.DS_Store
